@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
+@theme {
+  --color-prussian-blue-100: #04070c;
+  --color-prussian-blue-200: #080d19;
+  --color-prussian-blue-300: #0c1425;
+  --color-prussian-blue-400: #101b31;
+  --color-prussian-blue-500: #14213d;
+  --color-prussian-blue-600: #29447e;
+  --color-prussian-blue-700: #3e67bf;
+  --color-prussian-blue-800: #7e99d5;
+  --color-prussian-blue-900: #beccea;
+
+  --color-orange-100: #362101;
+  --color-orange-200: #6b4201;
+  --color-orange-300: #a16402;
+  --color-orange-400: #d68502;
+  --color-orange-500: #fca311;
+  --color-orange-600: #fdb541;
+  --color-orange-700: #fdc871;
+  --color-orange-800: #fedba1;
+  --color-orange-900: #ffeed1;
+
+  --color-platinum: #e5e5e5;
+  
+  --color-background: var(--color-prussian-blue-500);
+  --color-foreground: var(--color-platinum);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: var(--color-prussian-blue-500);
+  --foreground: var(--color-platinum);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
 }

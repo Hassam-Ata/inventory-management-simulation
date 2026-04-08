@@ -32,32 +32,82 @@ ChartJS.register(
 );
 
 export default function DemandPage() {
-  const { params, setParams, computePoissonProb } = useSimulationStore();
+  const { params, history, setParams, computePoissonProb } = useSimulationStore();
   const [lambda, setLocalLambda] = useState(params.lambda);
+
+  const demandStats = useMemo(() => {
+    if (history.length === 0) {
+      return {
+        mean: params.lambda,
+        variance: params.lambda,
+        stdDev: Math.sqrt(params.lambda),
+      };
+    }
+
+    const demands = history.map((d) => d.demand);
+    const mean = demands.reduce((sum, value) => sum + value, 0) / demands.length;
+    const variance =
+      demands.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) /
+      demands.length;
+
+    return {
+      mean,
+      variance,
+      stdDev: Math.sqrt(variance),
+    };
+  }, [history, params.lambda]);
+
+  const effectiveLambda = params.dynamicLambdaEnabled
+    ? demandStats.mean
+    : params.lambda;
 
   const chartData = useMemo(() => {
     const labels = Array.from({ length: 11 }, (_, i) => i.toString());
-    const data = labels.map((k) => computePoissonProb(parseInt(k)));
+    const theoretical = labels.map((k) =>
+      computePoissonProb(parseInt(k, 10), effectiveLambda),
+    );
+
+    const actualHistogram = new Array(labels.length).fill(0);
+    if (history.length > 0) {
+      history.forEach((entry) => {
+        if (entry.demand < actualHistogram.length) {
+          actualHistogram[entry.demand] += 1;
+        }
+      });
+    }
+
+    const actual =
+      history.length > 0
+        ? actualHistogram.map((count) => count / history.length)
+        : new Array(labels.length).fill(0);
 
     return {
       labels,
       datasets: [
         {
-          label: "Probability P(X=k)",
-          data: data,
+          type: "bar" as const,
+          label: "Theoretical Poisson",
+          data: theoretical,
           backgroundColor: "#fca311",
           borderRadius: 8,
           hoverBackgroundColor: "#fdb541",
         },
+        {
+          type: "bar" as const,
+          label: "Actual Simulation Demand",
+          data: actual,
+          backgroundColor: "rgba(126, 153, 213, 0.65)",
+          borderRadius: 8,
+        },
       ],
     };
-  }, [params.lambda, computePoissonProb]);
+  }, [computePoissonProb, effectiveLambda, history]);
 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: { display: true },
       tooltip: {
         backgroundColor: "#14213d",
         titleColor: "#e5e5e5",
@@ -94,17 +144,22 @@ export default function DemandPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <MetricCard
-          label="Average Demand (λ)"
-          value={params.lambda}
+          label="Mean (λ)"
+          value={demandStats.mean.toFixed(2)}
           icon={Users}
         />
         <MetricCard
-          label="Max Probability"
-          value={`${(Math.max(...chartData.datasets[0].data) * 100).toFixed(1)}%`}
+          label="Variance"
+          value={demandStats.variance.toFixed(2)}
+          icon={Info}
+        />
+        <MetricCard
+          label="Standard Deviation"
+          value={demandStats.stdDev.toFixed(2)}
           icon={Info}
         />
 
-        <div className="md:col-span-2 bg-prussian-blue-400 border border-prussian-blue-300 p-6 rounded-2xl shadow-lg flex items-center space-x-6">
+        <div className="md:col-span-1 bg-prussian-blue-400 border border-prussian-blue-300 p-6 rounded-2xl shadow-lg flex items-center space-x-6">
           <div className="w-12 h-12 bg-prussian-blue-300 rounded-xl flex items-center justify-center">
             <Settings2 className="text-orange-500" />
           </div>
@@ -124,16 +179,67 @@ export default function DemandPage() {
                 setLocalLambda(val);
                 setParams({ lambda: val });
               }}
+              disabled={params.dynamicLambdaEnabled}
               className="w-full h-2 bg-prussian-blue-300 rounded-lg appearance-none cursor-pointer accent-orange-500"
             />
           </div>
         </div>
       </div>
 
+      <div className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <label className="flex items-center justify-between p-4 bg-prussian-blue-500 rounded-xl border border-prussian-blue-300">
+          <div>
+            <p className="text-sm font-bold">Dynamic λ</p>
+            <p className="text-xs text-prussian-blue-800">
+              Use moving average from recent simulation days.
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              setParams({ dynamicLambdaEnabled: !params.dynamicLambdaEnabled })
+            }
+            className={`w-14 h-8 rounded-full p-1 transition-colors ${params.dynamicLambdaEnabled ? "bg-orange-500" : "bg-prussian-blue-300"}`}
+          >
+            <span
+              className={`block w-6 h-6 rounded-full bg-prussian-blue-500 transition-transform ${params.dynamicLambdaEnabled ? "translate-x-6" : "translate-x-0"}`}
+            />
+          </button>
+        </label>
+
+        <div className="p-4 bg-prussian-blue-500 rounded-xl border border-prussian-blue-300 space-y-2">
+          <div className="flex justify-between text-sm font-semibold">
+            <span>Moving Avg Window</span>
+            <span className="text-orange-500">{params.dynamicLambdaWindow} days</span>
+          </div>
+          <input
+            type="range"
+            min="2"
+            max="30"
+            value={params.dynamicLambdaWindow}
+            onChange={(e) =>
+              setParams({ dynamicLambdaWindow: parseInt(e.target.value, 10) })
+            }
+            className="w-full h-2 bg-prussian-blue-300 rounded-lg appearance-none cursor-pointer accent-orange-500"
+          />
+        </div>
+
+        <div className="p-4 bg-prussian-blue-500 rounded-xl border border-prussian-blue-300">
+          <p className="text-xs text-prussian-blue-800 uppercase font-bold mb-2">
+            Effective Lambda
+          </p>
+          <p className="text-3xl font-black text-orange-500">
+            {effectiveLambda.toFixed(2)}
+          </p>
+          <p className="text-xs text-prussian-blue-800 mt-1">
+            {params.dynamicLambdaEnabled ? "Dynamic mode from simulation history" : "Static mode from manual control"}
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <ChartContainer
-          title="Demand Distribution"
-          description="The probability of k customers arriving in a single day."
+          title="Theoretical vs Simulation Distribution"
+          description="Overlay comparison of Poisson prediction and actual simulated demand frequencies."
           className="lg:col-span-2"
         >
           <BarChartJS data={chartData} options={options} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useSimulationStore, DayRecord } from "@/lib/store/simulationStore";
+import { useSimulationStore } from "@/lib/store/simulationStore";
 import ChartContainer from "@/components/ChartContainer";
 import MetricCard from "@/components/MetricCard";
 import {
@@ -37,9 +37,22 @@ ChartJS.register(
 );
 
 export default function SimulationPage() {
-  const { params, history, runSimulation, resetSimulation } =
+  const { params, history, runSimulation, resetSimulation, setParams } =
     useSimulationStore();
   const [simDays, setSimDays] = useState(30);
+
+  const safetyStock = useMemo(() => {
+    const demands = history.map((d) => d.demand);
+    if (demands.length === 0) {
+      return params.zScore * Math.sqrt(params.lambda) * Math.sqrt(params.leadTimeDays);
+    }
+
+    const mean = demands.reduce((sum, value) => sum + value, 0) / demands.length;
+    const variance =
+      demands.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) /
+      demands.length;
+    return params.zScore * Math.sqrt(variance) * Math.sqrt(params.leadTimeDays);
+  }, [history, params.leadTimeDays, params.lambda, params.zScore]);
 
   useEffect(() => {
     if (history.length === 0) {
@@ -67,6 +80,21 @@ export default function SimulationPage() {
           borderDash: [5, 5],
           tension: 0,
           pointRadius: 0,
+        },
+        {
+          label: "Pipeline Stock",
+          data: history.map((d) => d.pipelineStock),
+          borderColor: "#3e67bf",
+          tension: 0.25,
+          pointRadius: 1,
+        },
+        {
+          label: "Inventory + Pipeline",
+          data: history.map((d) => d.inventoryAfter + d.pipelineStock),
+          borderColor: "#7e99d5",
+          borderDash: [4, 4],
+          pointRadius: 0,
+          tension: 0.2,
         },
       ],
     };
@@ -98,11 +126,18 @@ export default function SimulationPage() {
 
   const stats = useMemo(() => {
     if (history.length === 0)
-      return { fulfilledRate: 0, totalStockOuts: 0, avgDemand: 0 };
+      return {
+        fulfilledRate: 0,
+        totalStockOuts: 0,
+        avgDemand: 0,
+        avgPendingOrders: 0,
+      };
 
     const totalDemand = history.reduce((acc, curr) => acc + curr.demand, 0);
     const totalLost = history.reduce((acc, curr) => acc + curr.lostDemand, 0);
     const totalStockOuts = history.filter((d) => d.stockOutOccurred).length;
+    const avgPendingOrders =
+      history.reduce((acc, curr) => acc + curr.pendingOrders, 0) / history.length;
 
     return {
       fulfilledRate:
@@ -111,6 +146,7 @@ export default function SimulationPage() {
           : 100,
       totalStockOuts,
       avgDemand: (totalDemand / history.length).toFixed(1),
+      avgPendingOrders: avgPendingOrders.toFixed(1),
     };
   }, [history]);
 
@@ -154,7 +190,7 @@ export default function SimulationPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <MetricCard
           label="Fulfillment Rate"
           value={`${stats.fulfilledRate}%`}
@@ -170,6 +206,58 @@ export default function SimulationPage() {
           value={stats.avgDemand}
           icon={TrendingDown}
         />
+        <MetricCard
+          label="Avg Pending Orders"
+          value={stats.avgPendingOrders}
+          icon={ClipboardList}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl p-6">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="font-bold">Lead Time</span>
+            <span className="text-orange-500 font-bold">{params.leadTimeDays} days</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={params.leadTimeDays}
+            onChange={(e) =>
+              setParams({ leadTimeDays: parseInt(e.target.value, 10) })
+            }
+            className="w-full h-2 bg-prussian-blue-300 rounded-lg appearance-none cursor-pointer accent-orange-500"
+          />
+        </div>
+
+        <div className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl p-6">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="font-bold">Service Z-Score</span>
+            <span className="text-orange-500 font-bold">{params.zScore.toFixed(2)}</span>
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="3"
+            step="0.05"
+            value={params.zScore}
+            onChange={(e) =>
+              setParams({ zScore: parseFloat(e.target.value) })
+            }
+            className="w-full h-2 bg-prussian-blue-300 rounded-lg appearance-none cursor-pointer accent-orange-500"
+          />
+        </div>
+
+        <div className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl p-6">
+          <p className="text-xs uppercase text-prussian-blue-800 font-bold mb-2">
+            Safety Stock
+          </p>
+          <p className="text-3xl font-black text-orange-500">{safetyStock.toFixed(1)}</p>
+          <p className="text-xs text-prussian-blue-800 mt-2">
+            Formula: z × σ × √LeadTime
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -214,6 +302,16 @@ export default function SimulationPage() {
                 {params.maxInventory}).
               </p>
             </div>
+
+            <div className="p-4 bg-prussian-blue-500/50 rounded-xl border border-prussian-blue-300">
+              <h4 className="text-xs font-bold uppercase text-prussian-blue-800 mb-2">
+                Lead Time Queue
+              </h4>
+              <p className="text-[11px] leading-relaxed">
+                Orders are queued and arrive after {params.leadTimeDays} day(s).
+                Pipeline stock is tracked separately from on-hand inventory.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -233,6 +331,7 @@ export default function SimulationPage() {
                 <th className="px-6 py-4">Demand</th>
                 <th className="px-6 py-4">Before</th>
                 <th className="px-6 py-4">After</th>
+                <th className="px-6 py-4">Pipeline</th>
                 <th className="px-6 py-4">Fulfilled</th>
                 <th className="px-6 py-4">Status</th>
               </tr>
@@ -257,6 +356,9 @@ export default function SimulationPage() {
                     </td>
                     <td className="px-6 py-4 font-black">
                       {day.inventoryAfter}
+                    </td>
+                    <td className="px-6 py-4 text-blue-300 font-semibold">
+                      {day.pipelineStock}
                     </td>
                     <td className="px-6 py-4">{day.fulfilledDemand}</td>
                     <td className="px-6 py-4">

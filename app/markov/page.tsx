@@ -33,12 +33,31 @@ ChartJS.register(
 const STATES: InventoryState[] = ["Stock-out", "Low", "Medium", "High", "Full"];
 
 export default function MarkovPage() {
-  const { transitionMatrix, getSteadyStateProbabilities } =
-    useSimulationStore();
+  const {
+    transitionMatrix,
+    dynamicTransitionMatrixEnabled,
+    setDynamicTransitionMatrixEnabled,
+    getSteadyStateProbabilities,
+    getDynamicTransitionMatrix,
+    getMarkovComparison,
+  } = useSimulationStore();
+
+  const matrixToDisplay = useMemo(
+    () =>
+      dynamicTransitionMatrixEnabled
+        ? getDynamicTransitionMatrix()
+        : transitionMatrix,
+    [dynamicTransitionMatrixEnabled, getDynamicTransitionMatrix, transitionMatrix],
+  );
 
   const steadyStateProbs = useMemo(
     () => getSteadyStateProbabilities(),
     [getSteadyStateProbabilities],
+  );
+
+  const comparisonRows = useMemo(
+    () => getMarkovComparison(),
+    [getMarkovComparison],
   );
 
   const pieData = {
@@ -128,9 +147,30 @@ export default function MarkovPage() {
         <MetricCard label="System Stability" value="High" icon={Repeat} />
         <MetricCard
           label="Matrix Type"
-          value="Stochastic"
+          value={dynamicTransitionMatrixEnabled ? "Dynamic" : "Theoretical"}
           icon={ArrowRightLeft}
         />
+      </div>
+
+      <div className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold">Dynamic Transition Matrix</h3>
+            <p className="text-sm text-prussian-blue-800">
+              Compute state-transition probabilities directly from simulation history.
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              setDynamicTransitionMatrixEnabled(!dynamicTransitionMatrixEnabled)
+            }
+            className={`w-14 h-8 rounded-full p-1 transition-colors ${dynamicTransitionMatrixEnabled ? "bg-orange-500" : "bg-prussian-blue-300"}`}
+          >
+            <span
+              className={`block w-6 h-6 rounded-full bg-prussian-blue-500 transition-transform ${dynamicTransitionMatrixEnabled ? "translate-x-6" : "translate-x-0"}`}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -168,7 +208,7 @@ export default function MarkovPage() {
               </tr>
             </thead>
             <tbody>
-              {transitionMatrix.map((row, i) => (
+              {matrixToDisplay.map((row, i) => (
                 <tr
                   key={i}
                   className="border-b border-prussian-blue-300/50 hover:bg-prussian-blue-300/30 transition-colors"
@@ -199,6 +239,49 @@ export default function MarkovPage() {
           </p>
         </div>
       </div>
+
+      <section className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl p-6 space-y-4">
+        <h3 className="text-xl font-bold">Model vs Simulation Comparison</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-prussian-blue-300 text-left">
+                <th className="py-3">Metric</th>
+                <th className="py-3">Theoretical</th>
+                <th className="py-3">Simulation</th>
+                <th className="py-3">Mismatch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => {
+                const mismatch = Math.abs(row.theoretical - row.simulation) * 100;
+                const isHighMismatch = mismatch > 8;
+                return (
+                  <tr key={row.metric} className="border-b border-prussian-blue-300/40">
+                    <td className="py-3 font-semibold">{row.metric}</td>
+                    <td className="py-3">{(row.theoretical * 100).toFixed(1)}%</td>
+                    <td className="py-3">{(row.simulation * 100).toFixed(1)}%</td>
+                    <td
+                      className={`py-3 font-bold ${isHighMismatch ? "text-orange-500" : "text-green-400"}`}
+                    >
+                      {mismatch.toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="p-4 rounded-xl border border-prussian-blue-300 bg-prussian-blue-500">
+          <p className="text-sm text-prussian-blue-800">
+            {comparisonRows.some(
+              (row) => Math.abs(row.theoretical - row.simulation) > 0.08,
+            )
+              ? "Mismatch is material. Recalibrate reorder policy or switch to dynamic transition matrix for decisions."
+              : "Theoretical chain and simulation behavior are closely aligned under current policy."}
+          </p>
+        </div>
+      </section>
 
       <section className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-3xl p-8">
         <h2 className="text-xl font-bold mb-4">State Descriptions</h2>

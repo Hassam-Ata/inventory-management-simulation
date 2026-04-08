@@ -2,8 +2,29 @@
 
 import { Info, ArrowRight, Package, Users, ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { useSimulationStore, ScenarioPreset } from "@/lib/store/simulationStore";
 
 export default function OverviewPage() {
+  const { runScenarioPreset } = useSimulationStore();
+
+  const presets: { id: ScenarioPreset; title: string; desc: string }[] = [
+    {
+      id: "high-demand",
+      title: "High Demand",
+      desc: "Increase λ and stress service resilience.",
+    },
+    {
+      id: "low-inventory",
+      title: "Low Inventory",
+      desc: "Start with constrained stock to test fragility.",
+    },
+    {
+      id: "aggressive-restocking",
+      title: "Aggressive Restocking",
+      desc: "Raise reorder aggressiveness for continuity.",
+    },
+  ];
+
   return (
     <div className="space-y-12 pb-20">
       <header className="space-y-4">
@@ -77,6 +98,31 @@ export default function OverviewPage() {
             label="Reorder Logic"
             desc="Threshold Check"
           />
+        </div>
+      </section>
+
+      <section className="bg-prussian-blue-400 rounded-3xl border border-prussian-blue-300 p-8 space-y-5">
+        <div>
+          <h2 className="text-2xl font-bold">Scenario Testing</h2>
+          <p className="text-prussian-blue-800 text-sm">
+            Launch one-click simulation presets for quick policy stress tests.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {presets.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => runScenarioPreset(preset.id, 45)}
+              className="text-left bg-prussian-blue-500 border border-prussian-blue-300 rounded-2xl p-5 hover:border-orange-500/50 transition-colors"
+            >
+              <p className="text-lg font-bold text-platinum">{preset.title}</p>
+              <p className="text-xs text-prussian-blue-800 mt-1">{preset.desc}</p>
+              <p className="text-[10px] text-orange-500 uppercase font-bold mt-3">
+                Run 45-day scenario
+              </p>
+            </button>
+          ))}
         </div>
       </section>
 

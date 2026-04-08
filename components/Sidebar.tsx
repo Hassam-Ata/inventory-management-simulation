@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Activity,
   LineChart,
+  History,
   Settings,
   AlertCircle,
   HelpCircle,
@@ -23,6 +24,7 @@ const navItems = [
   { name: "Poisson Demand", href: "/demand", icon: BarChart3 },
   { name: "Markov Chain", href: "/markov", icon: Activity },
   { name: "Simulation", href: "/simulation", icon: LineChart },
+  { name: "History", href: "/history", icon: History },
   { name: "Analysis", href: "/analysis", icon: AlertCircle },
 ];
 

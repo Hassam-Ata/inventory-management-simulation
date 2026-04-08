@@ -20,6 +20,30 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Database Setup (Prisma + Neon)
+
+1. Create a Neon Postgres database and copy the connection string.
+2. Create a local `.env` file from `.env.example` and set `DATABASE_URL`.
+3. Install dependencies:
+
+```bash
+npm install
+```
+
+4. Generate Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+5. Push the Prisma schema to Neon:
+
+```bash
+npx prisma db push
+```
+
+After this, every time you click **Simulate** on the Simulation page, the run is stored in the database and appears in the **History** tab.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

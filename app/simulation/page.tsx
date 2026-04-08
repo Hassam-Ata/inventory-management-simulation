@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useSimulationStore, DayRecord } from "@/lib/store/simulationStore";
+import { useSimulationStore } from "@/lib/store/simulationStore";
 import ChartContainer from "@/components/ChartContainer";
 import MetricCard from "@/components/MetricCard";
 import {
@@ -23,6 +23,7 @@ import {
   ClipboardList,
   CheckCircle2,
   XCircle,
+  Database,
 } from "lucide-react";
 
 ChartJS.register(
@@ -40,6 +41,9 @@ export default function SimulationPage() {
   const { params, history, runSimulation, resetSimulation } =
     useSimulationStore();
   const [simDays, setSimDays] = useState(30);
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
 
   useEffect(() => {
     if (history.length === 0) {
@@ -114,6 +118,43 @@ export default function SimulationPage() {
     };
   }, [history]);
 
+  const handleRunSimulation = async () => {
+    setSaveStatus("idle");
+    runSimulation(simDays);
+
+    const {
+      params: currentParams,
+      history: currentHistory,
+      inventory,
+    } = useSimulationStore.getState();
+
+    if (currentHistory.length === 0) return;
+
+    setSaveStatus("saving");
+    try {
+      const response = await fetch("/api/simulations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          params: currentParams,
+          history: currentHistory,
+          endingInventory: inventory,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to persist simulation");
+      }
+
+      setSaveStatus("saved");
+    } catch (error) {
+      console.error(error);
+      setSaveStatus("error");
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-10">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -138,7 +179,7 @@ export default function SimulationPage() {
               Days
             </span>
             <button
-              onClick={() => runSimulation(simDays)}
+              onClick={handleRunSimulation}
               className="bg-orange-500 hover:bg-orange-600 text-prussian-blue-500 px-4 py-2 rounded-lg font-bold flex items-center space-x-2 transition-all active:scale-95"
             >
               <Play size={16} fill="currentColor" />
@@ -153,6 +194,16 @@ export default function SimulationPage() {
           </button>
         </div>
       </header>
+
+      <div className="flex items-center gap-2 text-xs font-semibold text-prussian-blue-800">
+        <Database size={14} className="text-orange-500" />
+        {saveStatus === "idle" && <span>Run a simulation to save it.</span>}
+        {saveStatus === "saving" && <span>Saving run to database...</span>}
+        {saveStatus === "saved" && <span>Simulation saved to history.</span>}
+        {saveStatus === "error" && (
+          <span className="text-red-400">Could not save simulation run.</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
@@ -220,12 +271,12 @@ export default function SimulationPage() {
 
       <div className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-2xl overflow-hidden shadow-xl">
         <div className="p-6 border-b border-prussian-blue-300 flex justify-between items-center bg-prussian-blue-300/20">
-          <h3 className="font-bold">Recent Cycle Ledger</h3>
+          <h3 className="font-bold">Detailed Cycle Ledger</h3>
           <span className="text-xs font-bold text-prussian-blue-700 uppercase">
-            Last {history.length} Days
+            All {history.length} Days
           </span>
         </div>
-        <div className="overflow-x-auto max-h-[400px]">
+        <div className="overflow-x-auto max-h-100">
           <table className="w-full text-sm text-left">
             <thead className="text-xs font-bold text-prussian-blue-800 uppercase bg-prussian-blue-500/30 sticky top-0">
               <tr>
@@ -234,14 +285,23 @@ export default function SimulationPage() {
                 <th className="px-6 py-4">Before</th>
                 <th className="px-6 py-4">After</th>
                 <th className="px-6 py-4">Fulfilled</th>
+                <th className="px-6 py-4">Lost</th>
+                <th className="px-6 py-4">Restocked</th>
                 <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-prussian-blue-300">
-              {history
-                .slice(-10)
+              {[...history]
                 .reverse()
-                .map((day) => (
+                .map((day) => {
+                  const expectedAfterDemand =
+                    day.inventoryBefore - day.fulfilledDemand;
+                  const restockedQty = Math.max(
+                    0,
+                    day.inventoryAfter - expectedAfterDemand,
+                  );
+
+                  return (
                   <tr
                     key={day.day}
                     className="hover:bg-prussian-blue-300/20 transition-colors"
@@ -259,6 +319,16 @@ export default function SimulationPage() {
                       {day.inventoryAfter}
                     </td>
                     <td className="px-6 py-4">{day.fulfilledDemand}</td>
+                    <td className="px-6 py-4">{day.lostDemand}</td>
+                    <td className="px-6 py-4">
+                      {restockedQty > 0 ? (
+                        <span className="px-2 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/30 rounded-md text-[10px] uppercase font-bold">
+                          +{restockedQty}
+                        </span>
+                      ) : (
+                        <span className="text-prussian-blue-700">0</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       {day.stockOutOccurred ? (
                         <span className="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/30 rounded-md text-[10px] uppercase font-bold">
@@ -271,7 +341,8 @@ export default function SimulationPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
             </tbody>
           </table>
         </div>

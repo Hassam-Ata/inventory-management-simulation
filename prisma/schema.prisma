@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SimulationRun {
+  id               String      @id @default(cuid())
+  createdAt        DateTime    @default(now())
+  days             Int
+  lambda           Float
+  reorderPoint     Int
+  restockAmt       Int
+  maxInventory     Int
+  initialInventory Int
+  endingInventory  Int
+  records          DayRecord[]
+}
+
+model DayRecord {
+  id               String        @id @default(cuid())
+  simulationRunId  String
+  day              Int
+  demand           Int
+  inventoryBefore  Int
+  inventoryAfter   Int
+  stockOutOccurred Boolean
+  fulfilledDemand  Int
+  lostDemand       Int
+  simulationRun    SimulationRun @relation(fields: [simulationRunId], references: [id], onDelete: Cascade)
+
+  @@index([simulationRunId, day])
+}

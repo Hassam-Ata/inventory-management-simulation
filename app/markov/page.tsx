@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { useSimulationStore } from "@/lib/store/simulationStore";
+import {
+  useSimulationStore,
+  InventoryState,
+} from "@/lib/store/simulationStore";
 import ChartContainer from "@/components/ChartContainer";
 import MetricCard from "@/components/MetricCard";
 import {
@@ -27,18 +30,16 @@ ChartJS.register(
   Filler,
 );
 
+const STATES: InventoryState[] = ["Stock-out", "Low", "Medium", "High", "Full"];
+
 export default function MarkovPage() {
-  const { getLeadTimeAwareTransitionModel } = useSimulationStore();
+  const { transitionMatrix, getSteadyStateProbabilities } =
+    useSimulationStore();
 
-  const leadTimeModel = useMemo(
-    () => getLeadTimeAwareTransitionModel(),
-    [getLeadTimeAwareTransitionModel],
+  const steadyStateProbs = useMemo(
+    () => getSteadyStateProbabilities(),
+    [getSteadyStateProbabilities],
   );
-
-  const STATES = leadTimeModel.states;
-  const transitionMatrix = leadTimeModel.transitionMatrix;
-
-  const steadyStateProbs = leadTimeModel.steadyState;
 
   const pieData = {
     labels: STATES,
@@ -120,18 +121,14 @@ export default function MarkovPage() {
         />
         <MetricCard
           label="Stock-out Risk"
-          value={`${(
-            ((steadyStateProbs[0] ?? 0) +
-              (steadyStateProbs[5] ?? 0)) *
-            100
-          ).toFixed(1)}%`}
+          value={`${(steadyStateProbs[0] * 100).toFixed(1)}%`}
           icon={Activity}
           trend={{ value: "Stable", positive: true }}
         />
         <MetricCard label="System Stability" value="High" icon={Repeat} />
         <MetricCard
           label="Matrix Type"
-          value="Lead-Time Aware"
+          value="Stochastic"
           icon={ArrowRightLeft}
         />
       </div>
@@ -165,10 +162,7 @@ export default function MarkovPage() {
                 </th>
                 {STATES.map((s) => (
                   <th key={s} className="py-2 px-1 text-center font-bold">
-                    {(() => {
-                      const [base, pending] = s.split(" | ");
-                      return `${base.substring(0, 3)}-${pending === "Pending PO" ? "P" : "N"}`;
-                    })()}
+                    {s.substring(0, 3)}
                   </th>
                 ))}
               </tr>
@@ -200,15 +194,15 @@ export default function MarkovPage() {
             </tbody>
           </table>
           <p className="mt-6 text-[11px] text-prussian-blue-800 leading-relaxed italic">
-            * State labels include pending-order status (PO), so the chain now
-            captures both inventory level and whether a replenishment is in transit.
+            * Each row sums to 1.0 (Stochastic Constraint). Higher values on the
+            diagonal indicate state persistence.
           </p>
         </div>
       </div>
 
       <section className="bg-prussian-blue-400 border border-prussian-blue-300 rounded-3xl p-8">
         <h2 className="text-xl font-bold mb-4">State Descriptions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {STATES.map((state, i) => (
             <div
               key={state}

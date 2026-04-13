@@ -28,6 +28,31 @@ type SimulationPayload = {
   endingInventory: number;
 };
 
+export async function GET() {
+  try {
+    const runs = await prisma.simulationRun.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        records: {
+          orderBy: {
+            day: "asc",
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(runs, { status: 200 });
+  } catch (error) {
+    console.error("Failed to fetch simulation runs", error);
+    return NextResponse.json(
+      { error: "Failed to fetch simulation runs." },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as SimulationPayload;

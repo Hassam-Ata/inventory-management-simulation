@@ -254,22 +254,15 @@ export default function SimulationPage() {
               value={params.maxInventory}
               unit="units"
             />
-            <ParamItem
-              label="Lead Time Window"
-              value={`${params.leadTimeMin}-${params.leadTimeMax}`}
-              unit="days"
-            />
 
             <div className="p-4 bg-prussian-blue-500/50 rounded-xl border border-prussian-blue-300">
               <h4 className="text-xs font-bold uppercase text-prussian-blue-800 mb-2">
                 Restocking Policy
               </h4>
               <p className="text-[11px] leading-relaxed">
-                Whenever inventory ≤ {params.reorderPoint}, place one purchase
-                order for {params.restockAmt} units. The order arrives after a
-                random lead time between {params.leadTimeMin} and{" "}
-                {params.leadTimeMax} days (uniform), and only then inventory is
-                increased (capped at {params.maxInventory}).
+                Whenever inventory ≤ {params.reorderPoint}, trigger a batch
+                order of {params.restockAmt} units (capped at{" "}
+                {params.maxInventory}).
               </p>
             </div>
           </div>
@@ -293,10 +286,7 @@ export default function SimulationPage() {
                 <th className="px-6 py-4">After</th>
                 <th className="px-6 py-4">Fulfilled</th>
                 <th className="px-6 py-4">Lost</th>
-                <th className="px-6 py-4">Received</th>
-                <th className="px-6 py-4">Ordered</th>
-                <th className="px-6 py-4">Lead (d)</th>
-                <th className="px-6 py-4">Pending</th>
+                <th className="px-6 py-4">Restocked</th>
                 <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
@@ -304,6 +294,13 @@ export default function SimulationPage() {
               {[...history]
                 .reverse()
                 .map((day) => {
+                  const expectedAfterDemand =
+                    day.inventoryBefore - day.fulfilledDemand;
+                  const restockedQty = Math.max(
+                    0,
+                    day.inventoryAfter - expectedAfterDemand,
+                  );
+
                   return (
                   <tr
                     key={day.day}
@@ -324,28 +321,13 @@ export default function SimulationPage() {
                     <td className="px-6 py-4">{day.fulfilledDemand}</td>
                     <td className="px-6 py-4">{day.lostDemand}</td>
                     <td className="px-6 py-4">
-                      {day.receivedQty > 0 ? (
+                      {restockedQty > 0 ? (
                         <span className="px-2 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/30 rounded-md text-[10px] uppercase font-bold">
-                          +{day.receivedQty}
+                          +{restockedQty}
                         </span>
                       ) : (
                         <span className="text-prussian-blue-700">0</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {day.orderPlacedQty > 0 ? (
-                        <span className="px-2 py-1 bg-blue-500/10 text-blue-300 border border-blue-400/30 rounded-md text-[10px] uppercase font-bold">
-                          +{day.orderPlacedQty}
-                        </span>
-                      ) : (
-                        <span className="text-prussian-blue-700">0</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {day.orderLeadTime ?? "-"}
-                    </td>
-                    <td className="px-6 py-4">
-                      {day.pendingOrdersEndOfDay}
                     </td>
                     <td className="px-6 py-4">
                       {day.stockOutOccurred ? (
@@ -375,7 +357,7 @@ function ParamItem({
   unit,
 }: {
   label: string;
-  value: number | string;
+  value: number;
   unit: string;
 }) {
   return (

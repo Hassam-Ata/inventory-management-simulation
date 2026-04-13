@@ -16,6 +16,8 @@ model SimulationRun {
   restockAmt       Int
   maxInventory     Int
   initialInventory Int
+  leadTimeMin      Int         @default(1)
+  leadTimeMax      Int         @default(3)
   endingInventory  Int
   records          DayRecord[]
 }
@@ -30,6 +32,11 @@ model DayRecord {
   stockOutOccurred Boolean
   fulfilledDemand  Int
   lostDemand       Int
+  receivedQty      Int           @default(0)
+  orderPlacedQty   Int           @default(0)
+  orderLeadTime    Int?
+  pendingOrdersEod Int           @default(0)
+  pendingUnitsEod  Int           @default(0)
   simulationRun    SimulationRun @relation(fields: [simulationRunId], references: [id], onDelete: Cascade)
 
   @@index([simulationRunId, day])

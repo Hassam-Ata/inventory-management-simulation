@@ -8,6 +8,8 @@ type SimulationPayload = {
     restockAmt: number;
     maxInventory: number;
     initialInventory: number;
+    leadTimeMin: number;
+    leadTimeMax: number;
   };
   history: Array<{
     day: number;
@@ -17,6 +19,11 @@ type SimulationPayload = {
     stockOutOccurred: boolean;
     fulfilledDemand: number;
     lostDemand: number;
+    receivedQty: number;
+    orderPlacedQty: number;
+    orderLeadTime: number | null;
+    pendingOrdersEndOfDay: number;
+    pendingUnitsEndOfDay: number;
   }>;
   endingInventory: number;
 };
@@ -40,6 +47,8 @@ export async function POST(request: Request) {
         restockAmt: body.params.restockAmt,
         maxInventory: body.params.maxInventory,
         initialInventory: body.params.initialInventory,
+        leadTimeMin: body.params.leadTimeMin,
+        leadTimeMax: body.params.leadTimeMax,
         endingInventory: body.endingInventory,
         records: {
           create: body.history.map((day) => ({
@@ -50,6 +59,11 @@ export async function POST(request: Request) {
             stockOutOccurred: day.stockOutOccurred,
             fulfilledDemand: day.fulfilledDemand,
             lostDemand: day.lostDemand,
+            receivedQty: day.receivedQty,
+            orderPlacedQty: day.orderPlacedQty,
+            orderLeadTime: day.orderLeadTime,
+            pendingOrdersEod: day.pendingOrdersEndOfDay,
+            pendingUnitsEod: day.pendingUnitsEndOfDay,
           })),
         },
       },

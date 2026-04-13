@@ -1,5 +1,6 @@
 "use client";
 
+import { type LucideIcon } from "lucide-react";
 import { Info, ArrowRight, Package, Users, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 
@@ -98,12 +99,12 @@ function FlowStep({
   label,
   desc,
 }: {
-  icon: any;
+  icon: LucideIcon;
   label: string;
   desc: string;
 }) {
   return (
-    <div className="flex flex-col items-center space-y-4 text-center max-w-[150px]">
+    <div className="flex flex-col items-center space-y-4 text-center max-w-37.5">
       <div className="w-20 h-20 bg-prussian-blue-500 rounded-full flex items-center justify-center border-2 border-orange-500 shadow-lg group-hover:shadow-orange-500/20">
         <Icon size={32} className="text-orange-500" />
       </div>

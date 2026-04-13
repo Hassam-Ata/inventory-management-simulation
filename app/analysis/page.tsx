@@ -47,12 +47,25 @@ export default function AnalysisPage() {
     const lostDemand = history.reduce((acc, curr) => acc + curr.lostDemand, 0);
     const avgInventory =
       history.reduce((acc, curr) => acc + curr.inventoryAfter, 0) / totalDays;
+    const leadTimes = history
+      .map((d) => d.orderLeadTime)
+      .filter((value): value is number => value !== null);
+    const avgLeadTime =
+      leadTimes.length > 0
+        ? leadTimes.reduce((sum, value) => sum + value, 0) / leadTimes.length
+        : 0;
+    const pendingOrderDays = history.filter(
+      (d) => d.pendingOrdersEndOfDay > 0,
+    ).length;
 
     return {
       stockOutProb: ((stockOutDays / totalDays) * 100).toFixed(1),
-      serviceLevel: ((1 - lostDemand / totalDemand) * 100).toFixed(1),
+      serviceLevel:
+        totalDemand > 0 ? ((1 - lostDemand / totalDemand) * 100).toFixed(1) : "100.0",
       inventoryTurnover: (totalDemand / avgInventory).toFixed(2),
       efficiencyScore: (85 - (stockOutDays / totalDays) * 100).toFixed(1),
+      avgLeadTime: avgLeadTime.toFixed(2),
+      pendingOrderShare: ((pendingOrderDays / totalDays) * 100).toFixed(1),
     };
   }, [history]);
 
@@ -80,8 +93,8 @@ export default function AnalysisPage() {
 
     if (parseFloat(metrics.stockOutProb) > 5) {
       recs.push({
-        title: "Increase Reorder Point",
-        desc: "Current stock-out risk is above 5%. Increasing reorder point by 2-3 units will act as safety stock.",
+        title: "Raise Safety Stock Buffer",
+        desc: "Current stock-out risk is above 5%. With delayed replenishment, increasing reorder point by 2-3 units helps absorb lead-time demand.",
         icon: ShieldCheck,
         color: "text-orange-500",
       });
@@ -110,6 +123,15 @@ export default function AnalysisPage() {
       });
     }
 
+    if (parseFloat(metrics.pendingOrderShare) > 60) {
+      recs.push({
+        title: "Lead Time Exposure Is High",
+        desc: "Orders are pending for most days. Consider lowering the lead-time range or increasing reorder point to reduce vulnerable periods.",
+        icon: AlertTriangle,
+        color: "text-orange-500",
+      });
+    }
+
     return recs;
   }, [metrics]);
 
@@ -126,7 +148,7 @@ export default function AnalysisPage() {
 
       {metrics ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
             <MetricCard
               label="Service Level"
               value={`${metrics.serviceLevel}%`}
@@ -146,6 +168,16 @@ export default function AnalysisPage() {
               label="Turnover"
               value={metrics.inventoryTurnover}
               icon={TrendingUp}
+            />
+            <MetricCard
+              label="Avg Lead Time"
+              value={`${metrics.avgLeadTime} d`}
+              icon={ShieldCheck}
+            />
+            <MetricCard
+              label="Pending-Order Days"
+              value={`${metrics.pendingOrderShare}%`}
+              icon={AlertTriangle}
             />
           </div>
 
@@ -205,10 +237,10 @@ export default function AnalysisPage() {
                     <span>Policy Recommendation</span>
                   </h4>
                   <p className="text-sm text-platinum italic">
-                    "Based on a Poisson demand rate of λ={params.lambda}, we
+                    &quot;Based on a Poisson demand rate of λ={params.lambda}, we
                     suggest a reorder point of {Math.ceil(params.lambda * 1.5)}{" "}
                     units to maintain a 95% service level while minimizing dead
-                    stock."
+                    stock.&quot;
                   </p>
                 </div>
                 {/* Decorative glow */}

@@ -11,6 +11,11 @@ type HistoryRecord = {
   stockOutOccurred: boolean;
   fulfilledDemand: number;
   lostDemand: number;
+  receivedQty: number;
+  orderPlacedQty: number;
+  orderLeadTime: number | null;
+  pendingOrdersEod: number;
+  pendingUnitsEod: number;
 };
 
 type HistoryRun = {
@@ -21,6 +26,8 @@ type HistoryRun = {
   reorderPoint: number;
   restockAmt: number;
   maxInventory: number;
+  leadTimeMin: number;
+  leadTimeMax: number;
   records: HistoryRecord[];
 };
 
@@ -79,11 +86,15 @@ export default async function HistoryPage() {
                     {run.days} Days
                   </span>
                 </div>
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                   <InfoChip label="Lambda" value={run.lambda} />
                   <InfoChip label="Reorder Point" value={run.reorderPoint} />
                   <InfoChip label="Restock Amount" value={run.restockAmt} />
                   <InfoChip label="Max Inventory" value={run.maxInventory} />
+                  <InfoChip
+                    label="Lead Time"
+                    value={`${run.leadTimeMin}-${run.leadTimeMax} d`}
+                  />
                 </div>
               </div>
 
@@ -97,6 +108,10 @@ export default async function HistoryPage() {
                       <th className="px-6 py-4">After</th>
                       <th className="px-6 py-4">Fulfilled</th>
                       <th className="px-6 py-4">Lost</th>
+                      <th className="px-6 py-4">Received</th>
+                      <th className="px-6 py-4">Ordered</th>
+                      <th className="px-6 py-4">Lead (d)</th>
+                      <th className="px-6 py-4">Pending</th>
                       <th className="px-6 py-4">Status</th>
                     </tr>
                   </thead>
@@ -120,6 +135,10 @@ export default async function HistoryPage() {
                         </td>
                         <td className="px-6 py-4">{day.fulfilledDemand}</td>
                         <td className="px-6 py-4">{day.lostDemand}</td>
+                        <td className="px-6 py-4">{day.receivedQty}</td>
+                        <td className="px-6 py-4">{day.orderPlacedQty}</td>
+                        <td className="px-6 py-4">{day.orderLeadTime ?? "-"}</td>
+                        <td className="px-6 py-4">{day.pendingOrdersEod}</td>
                         <td className="px-6 py-4">
                           {day.stockOutOccurred ? (
                             <span className="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/30 rounded-md text-[10px] uppercase font-bold">
@@ -144,7 +163,7 @@ export default async function HistoryPage() {
   );
 }
 
-function InfoChip({ label, value }: { label: string; value: number }) {
+function InfoChip({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="p-3 rounded-lg border border-prussian-blue-300 bg-prussian-blue-500/40">
       <p className="uppercase text-prussian-blue-800 font-bold tracking-wide text-[10px]">

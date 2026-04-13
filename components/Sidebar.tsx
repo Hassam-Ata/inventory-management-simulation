@@ -11,6 +11,8 @@ import {
   Settings,
   AlertCircle,
   HelpCircle,
+  Clock3,
+  GitCompare,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -24,6 +26,8 @@ const navItems = [
   { name: "Poisson Demand", href: "/demand", icon: BarChart3 },
   { name: "Markov Chain", href: "/markov", icon: Activity },
   { name: "Simulation", href: "/simulation", icon: LineChart },
+  { name: "Lead Time", href: "/lead-time", icon: Clock3 },
+  { name: "Comparison", href: "/comparison", icon: GitCompare },
   { name: "History", href: "/history", icon: History },
   { name: "Analysis", href: "/analysis", icon: AlertCircle },
 ];

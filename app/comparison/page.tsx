@@ -241,11 +241,7 @@ export default function ComparisonPage() {
           value={mode === "policy" ? "Policy Strategy" : "Stress / Sensitivity"}
           icon={mode === "policy" ? ShieldCheck : Gauge}
         />
-        <MetricCard
-          label="Validation"
-          value={validationError ? "Needs Fix" : "Ready"}
-          icon={validationError ? AlertTriangle : CheckCircle2}
-        />
+
       </div>
 
       <section className="rounded-2xl border border-prussian-blue-300 bg-prussian-blue-400 p-6">

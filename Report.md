@@ -2,208 +2,290 @@
 
 ## Project Overview
 
-This project is an interactive inventory management simulation built with Next.js and a shared client-side state store. It models how inventory changes over time when customer demand is random, restocking is triggered by a reorder policy, and long-term behavior is analyzed with a Markov chain.
+This project is an interactive inventory management simulator built with Next.js, Zustand, Chart.js, and Prisma. It combines demand randomness, policy controls, Markov-state analytics, and saved-run comparison in one workflow.
 
-The application is organized into four main screens:
+The current application includes these major screens:
 
-- **Demand**: models customer arrivals using a Poisson distribution.
-- **Markov**: shows the inventory states and their long-term transition behavior.
-- **Simulation**: runs day-by-day inventory cycles and records the results.
-- **Analysis**: summarizes the simulation output and gives policy recommendations.
+- Overview
+- Poisson Demand
+- Parameters
+- Markov Chain
+- Simulation
+- Comparison
+- History
+- Analysis
 
-The project is useful because it connects theory with a live simulation. Instead of only showing formulas, it demonstrates how demand, restocking, stock-outs, and inventory stability interact in practice.
+The key objective is to connect mathematical models with operational behavior so policy choices can be tested and compared using both live and persisted simulation runs.
 
-## How the Project Works
+## System Architecture
 
-The simulation is driven by a shared store in `lib/store/simulationStore.ts`. That store holds the main inventory parameters and provides the calculations used by every page:
+### Core state and simulation engine
 
-- **Lambda** controls the average demand rate per day.
-- **Reorder point** determines when restocking happens.
-- **Restock amount** determines how many units are added.
-- **Max inventory** caps the inventory level after restocking.
-- **Initial inventory** sets the starting stock level.
+The shared simulation logic is implemented in `lib/store/simulationStore.ts`.
 
-Two core mathematical models are used:
+Main runtime parameters:
 
-1. **Poisson demand model** for customer arrivals.
-2. **Markov chain model** for inventory state transitions.
+- Lambda ($\lambda$): average daily demand rate
+- Reorder point
+- Refill amount
+- Max inventory
+- Initial inventory
 
-The simulation page uses both models together to generate daily inventory records. The analysis page then turns those records into performance metrics and strategic recommendations.
+Main data structures:
 
-## Demand Page
+- `history`: array of daily simulation records
+- `transitionMatrix`: Markov transition matrix derived from the latest run
 
-### What the page shows
+### Persistence layer
 
-The Demand page visualizes the Poisson distribution for daily customer arrivals. It lets the user adjust the average demand rate using a slider and immediately updates the distribution chart.
+Simulation runs are stored in PostgreSQL through Prisma models:
 
-[place screenshot here]
+- `SimulationRun`
+- `DayRecord`
 
-### What is happening on this page
+Relevant API endpoint:
 
-This screen shows how likely it is to receive 0, 1, 2, 3, and more customer requests in a single day. It displays:
+- `app/api/simulations/route.ts`
+	- `POST`: saves a run and its daily records
+	- `GET`: returns saved runs with records for history and comparison
 
-- A bar chart of Poisson probabilities.
-- The current value of $\lambda$.
-- The maximum probability in the current distribution.
-- A formula panel explaining the Poisson model.
-- A short list of properties of the distribution.
+## Key Modeling Logic (Updated)
 
-### How the calculations are done
+### 1. Poisson demand model
 
-The Poisson probability of exactly $k$ arrivals is calculated using:
+Daily demand follows:
 
-$$P(X = k) = \frac{e^{-\lambda} \cdot \lambda^k}{k!}$$
+$$
+P(X=k)=\frac{e^{-\lambda}\lambda^k}{k!}
+$$
 
-In the code, this is implemented in the shared store through `computePoissonProb(k)`. The function reads the current $\lambda$ value and returns the probability for each $k$.
+The simulator samples demand by cumulative probability inversion (random number + cumulative Poisson mass).
 
-The page generates labels from 0 to 10 and calculates the probability for each value. These values are passed into the bar chart so the distribution changes whenever the user adjusts the slider.
+### 2. Restocking policy with lead time $L=1$
 
-### Why this page is helpful
+The simulator now uses next-day replenishment:
 
-This page helps explain demand uncertainty. In inventory systems, demand is rarely constant, so the Poisson distribution is a realistic way to model how many requests may arrive each day. It is especially useful for understanding why stock-outs can happen even when average demand seems manageable.
+1. Receive pending restock at day start (if any).
+2. Sample and fulfill demand.
+3. Compute lost demand and stock-out event.
+4. If end-of-day inventory is at or below reorder point, place order to arrive next day.
 
-## Markov Page
+This is more realistic than same-day replenishment and creates clearer low-inventory and stock-out dynamics.
 
-### What the page shows
+### 3. Markov transition matrix from current run history
 
-The Markov page displays the inventory system as a state-based process. It presents both a visual summary of steady-state probabilities and the transition matrix that defines how inventory states move over time.
+The transition matrix is no longer hardcoded. It is estimated from the current simulation run only.
 
-[place screenshot here]
+State mapping uses inventory ratio $r=\frac{inventory}{maxInventory}$:
 
-### What is happening on this page
+- Stock-out: $inventory \le 0$
+- Low: $r \le 0.25$
+- Medium: $0.25 < r \le 0.5$
+- High: $0.5 < r \le 0.75$
+- Full: $r > 0.75$
 
-This screen focuses on long-term inventory behavior. It shows:
+Transition counting includes:
 
-- The five inventory states: Stock-out, Low, Medium, High, and Full.
-- A pie chart of steady-state probabilities.
-- A radar chart for the same distribution.
-- The transition matrix $P$.
-- A state description card for each inventory level.
+- Day 0 -> Day 1 transition (initial inventory to first simulated day)
+- All consecutive day transitions in the run
 
-The transition matrix shows the probability of moving from one inventory state to another. Each row represents the current state, and each column represents the next state.
+Each row is normalized to probabilities. If a row has no observed outgoing transitions, it falls back to an identity row for stochastic validity.
 
-### How the calculations are done
+### 4. Steady-state probabilities
 
-The steady-state probabilities are calculated by solving:
+The Markov screen computes long-run state occupancy by solving:
 
-$$\pi P = \pi$$
+$$
+\pi P = \pi,\quad \sum_i \pi_i = 1
+$$
 
-with the additional constraint:
+The implementation forms a linear system from $P^T - I$ and a normalization row, then solves with LU decomposition.
 
-$$\sum \pi_i = 1$$
+## Page-by-Page Functionality
 
-This means the long-run probability vector $\pi$ must remain unchanged after applying the transition matrix.
+## Overview Page
 
-In the implementation, the store transposes the matrix, subtracts the identity matrix, replaces one row with the normalization constraint, and then solves the linear system using matrix algebra. If the solver fails, the app falls back to a uniform distribution.
+Purpose:
 
-### Why this page is helpful
+- Entry screen explaining the system concept and flow (demand -> inventory state -> reorder logic).
 
-This page helps explain how inventory behaves over the long term instead of only day-by-day. It is useful for understanding system stability, stock-out risk, and whether the current inventory policy tends to keep the system in healthy states or push it toward shortages.
+## Poisson Demand Page
+
+Purpose:
+
+- Interactive explanation of demand uncertainty.
+
+Main features:
+
+- Lambda slider
+- Poisson distribution bar chart
+- Mathematical formula panel
+- Quick statistical indicators
+
+## Parameters Page (New)
+
+Purpose:
+
+- Central control deck for policy inputs and valid parameter ranges.
+
+Main features:
+
+- Dedicated slider controls for:
+	- Max inventory
+	- Reorder point
+	- Refill amount
+	- Initial inventory
+- Lambda shown as live value (informational)
+- Active range panel
+- Live state-map panel showing numeric ranges for Stock-out, Low, Medium, High, Full based on current max inventory
+- Restock logic summary for lead time $L=1$
+
+UI notes:
+
+- Sliders use a standard filled-track style where the thumb aligns with progress fill.
+- Sliders are independent (one slider does not auto-adjust others).
+
+## Markov Chain Page
+
+Purpose:
+
+- Analyze long-run state behavior of the latest run.
+
+Main features:
+
+- Transition matrix table
+- Steady-state pie chart
+- Steady-state radar chart
+- State probability cards
+
+Important update:
+
+- Matrix values are empirically computed from run history, not static constants.
 
 ## Simulation Page
 
-### What the page shows
+Purpose:
 
-The Simulation page runs a day-by-day inventory experiment and shows the inventory history in a line chart, summary metrics, and a recent activity table.
+- Run day-by-day operational simulation and view detailed daily results.
 
-[place screenshot here]
+Main features:
 
-### What is happening on this page
+- Configurable number of simulation days
+- Inventory and demand line chart
+- Fulfillment/stock-out summary cards
+- Day-level ledger
+- Save-to-database flow with status feedback
 
-This is the operational core of the project. The page lets the user choose how many days to simulate, run the simulation, and reset the results. It displays:
+Computation outputs captured per day:
 
-- Inventory over time.
-- Daily demand values.
-- Fulfillment statistics.
-- Parameter values such as reorder point, restock amount, and max capacity.
-- A ledger of the most recent simulation days.
+- Demand
+- Inventory before demand
+- Inventory after demand (end-of-day state used by Markov estimation)
+- Fulfilled and lost demand
+- Stock-out flag
 
-### How the calculations are done
+## Comparison Page (New)
 
-Each day in the simulation follows this sequence:
+Purpose:
 
-1. A random demand value is sampled from the Poisson distribution.
-2. The available inventory before demand is recorded.
-3. Fulfilled demand is calculated as the smaller of demand and inventory.
-4. Lost demand is the part of demand that could not be fulfilled.
-5. Inventory is reduced by the fulfilled demand.
-6. If inventory is less than or equal to the reorder point, a restock is triggered.
-7. The restock amount is added, but the inventory cannot exceed the maximum capacity.
+- Compare 2 to 5 saved runs under explicit experimental constraints.
 
-The store records every day in a history array. Each record stores:
+Two comparison modes:
 
-- Day number.
-- Demand.
-- Inventory before demand.
-- Inventory after restocking.
-- Whether a stock-out occurred.
-- Fulfilled demand.
-- Lost demand.
+1. Policy Strategy Comparison
+2. System Stress Test / Sensitivity Analysis
 
-The Poisson demand is sampled by generating a random number and walking through the cumulative distribution until the sampled probability range is reached.
+Rule validation (enforced in UI):
 
-### Why this page is helpful
+- Both modes:
+	- Must select 2 to 5 runs
+	- Selected runs must have the same total simulation days
+- Policy Strategy Comparison:
+	- Lambda must be identical across selected runs
+- System Stress Test / Sensitivity Analysis:
+	- Reorder point must be constant
+	- Refill amount must be constant
+	- Lambda may vary
 
-This page is useful because it shows how the policy performs in practice. Users can see whether the reorder point is too low, whether demand is causing frequent shortages, and how restocking affects the inventory curve. It turns the mathematical model into a concrete operational timeline.
+Outputs:
+
+- Multi-run inventory trajectory chart
+- Fulfillment vs stock-out percentage chart
+- Comparative metrics table (lambda, policy params, fulfillment, stock-out, lost demand, ending inventory)
+
+## History Page
+
+Purpose:
+
+- Browse persisted simulation runs and inspect day-level records.
+
+Main features:
+
+- Run cards with timestamp and parameter chips
+- Detailed per-day table
+- Lead-time and pending-order related columns supported by persistence model
 
 ## Analysis Page
 
-### What the page shows
+Purpose:
 
-The Analysis page interprets the simulation results and converts them into business-oriented metrics and recommendations.
+- Convert simulation data into business-facing performance KPIs.
 
-[place screenshot here]
+Metrics shown:
 
-### What is happening on this page
+- Stock-out probability
+- Service level
+- Inventory turnover
+- Efficiency score (project-specific heuristic)
 
-This screen summarizes the overall performance of the system. It shows:
+Current formulas:
 
-- Service level.
-- Stock-out probability.
-- Efficiency score.
-- Inventory turnover.
-- Benchmark comparison chart.
-- Strategic recommendation cards.
-- A policy recommendation based on the current demand rate.
+- Stock-out probability:
 
-If there is no simulation history yet, the page shows a message telling the user to run the simulation first.
+$$
+\frac{stockOutDays}{totalDays}\times 100
+$$
 
-### How the calculations are done
+- Service level:
 
-The analysis metrics are derived from the simulation history:
+$$
+\left(1-\frac{lostDemand}{totalDemand}\right)\times 100
+$$
 
-- **Total days** = number of simulation records.
-- **Stock-out days** = number of days where a stock-out occurred.
-- **Total demand** = sum of all daily demand values.
-- **Lost demand** = sum of demand that could not be fulfilled.
-- **Average inventory** = average of the inventory after each day.
+- Inventory turnover:
 
-From those values, the page calculates:
+$$
+\frac{totalDemand}{averageInventory}
+$$
 
-- **Stock-out probability** = stock-out days divided by total days.
-- **Service level** = fulfilled demand divided by total demand.
-- **Inventory turnover** = total demand divided by average inventory.
-- **Efficiency score** = a heuristic score based on stock-out frequency.
+- Efficiency score:
 
-The policy recommendation uses the current Poisson parameter and suggests a reorder point based on the demand rate. In the current implementation, it recommends a reorder point of roughly $1.5 \times \lambda$ units.
+$$
+85-\left(\frac{stockOutDays}{totalDays}\times 100\right)
+$$
 
-### Why this page is helpful
+The page also generates recommendation cards based on stock-out probability and turnover thresholds.
 
-This page is important because it translates raw simulation output into decision-making guidance. It helps the user understand whether the current policy is efficient, whether stock-outs are too frequent, and how the reorder policy could be adjusted to improve service levels.
+## End-to-End Workflow
 
-## How the Screens Work Together
+Typical flow now is:
 
-The four screens form a complete workflow:
+1. Tune policy parameters in Parameters.
+2. Inspect demand profile in Poisson Demand.
+3. Run simulation and persist selected runs.
+4. Review long-run transitions in Markov Chain.
+5. Compare multiple saved runs in Comparison using valid experimental constraints.
+6. Use Analysis for KPI interpretation and policy guidance.
+7. Audit raw saved records in History.
 
-- The **Demand** page explains and controls the random demand model.
-- The **Markov** page explains the long-term state behavior of the inventory system.
-- The **Simulation** page applies those models in a daily operational run.
-- The **Analysis** page evaluates the results and turns them into recommendations.
+## Notes and Current Scope
 
-Together, they create a complete inventory management learning tool that connects theory, simulation, and decision support.
+- Markov transitions are computed from the in-memory current run history.
+- Comparison operates on persisted history data from the database.
+- The project currently supports fixed one-day replenishment delay in the main simulation flow.
 
 ## Conclusion
 
-This project demonstrates how inventory systems can be analyzed using probability, state transitions, and simulation. The demand page explains randomness, the Markov page explains long-term state behavior, the simulation page shows operational results, and the analysis page turns those results into actionable insights.
+The project has evolved from a basic demand-simulation demo into a multi-page decision-support system that supports parameter tuning, empirical Markov modeling, run persistence, constrained multi-run comparison, and KPI-driven analysis.
 
-The application is helpful for learning, teaching, and experimenting with inventory policy choices because it makes the impact of demand variability and restocking rules visible in a practical way.
+It now provides a stronger experimentation loop for inventory policy design: configure -> simulate -> persist -> compare -> analyze.

@@ -21,6 +21,65 @@ export interface DayRecord {
   lostDemand: number;
 }
 
+const PARAM_LIMITS = {
+  lambda: { min: 0.5, max: 10 },
+  maxInventory: { min: 10, max: 30 },
+  reorderPoint: { min: 1 },
+  restockAmt: { min: 1 },
+  initialInventory: { min: 1 },
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const safeNumber = (value: unknown, fallback: number) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const sanitizeParams = (params: SimulationParams): SimulationParams => {
+  const maxInventory = clamp(
+    Math.round(safeNumber(params.maxInventory, PARAM_LIMITS.maxInventory.min)),
+    PARAM_LIMITS.maxInventory.min,
+    PARAM_LIMITS.maxInventory.max,
+  );
+
+  const reorderPoint = clamp(
+    Math.round(safeNumber(params.reorderPoint, PARAM_LIMITS.reorderPoint.min)),
+    PARAM_LIMITS.reorderPoint.min,
+    Math.max(PARAM_LIMITS.reorderPoint.min, maxInventory - 1),
+  );
+
+  const restockAmt = clamp(
+    Math.round(safeNumber(params.restockAmt, PARAM_LIMITS.restockAmt.min)),
+    PARAM_LIMITS.restockAmt.min,
+    maxInventory,
+  );
+
+  const initialInventory = clamp(
+    Math.round(
+      safeNumber(params.initialInventory, PARAM_LIMITS.initialInventory.min),
+    ),
+    PARAM_LIMITS.initialInventory.min,
+    maxInventory,
+  );
+
+  const lambdaRaw = safeNumber(params.lambda, PARAM_LIMITS.lambda.min);
+  const lambda = clamp(
+    Math.round(lambdaRaw * 2) / 2,
+    PARAM_LIMITS.lambda.min,
+    PARAM_LIMITS.lambda.max,
+  );
+
+  return {
+    lambda,
+    reorderPoint,
+    restockAmt,
+    maxInventory,
+    initialInventory,
+  };
+};
+
 interface SimulationStore {
   params: SimulationParams;
   history: DayRecord[];
@@ -100,9 +159,10 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   
   transitionMatrix: createIdentityTransitionMatrix(),
 
-  setParams: (newParams) => set((state) => ({ 
-    params: { ...state.params, ...newParams } 
-  })),
+  setParams: (newParams) =>
+    set((state) => ({
+      params: sanitizeParams({ ...state.params, ...newParams }),
+    })),
 
   computePoissonProb: (k) => {
     const { lambda } = get().params;

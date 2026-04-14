@@ -65,6 +65,9 @@ function SliderField({
 
 export default function ParametersPage() {
   const { params, setParams } = useSimulationStore();
+  const dynamicReorderMax = Math.max(1, params.maxInventory - 1);
+  const dynamicRestockMax = params.maxInventory;
+  const dynamicInitialMax = params.maxInventory;
 
   const stateRanges = [
     {
@@ -104,10 +107,7 @@ export default function ParametersPage() {
           <h1 className="text-3xl font-black tracking-tight text-platinum">
             Parameter <span className="text-orange-500">Control Deck</span>
           </h1>
-          <p className="mt-2 max-w-2xl text-prussian-blue-900">
-            Tune system constraints with live ranges. These values are used by
-            the simulation and transition matrix in your next run.
-          </p>
+
         </div>
       </header>
 
@@ -138,7 +138,7 @@ export default function ParametersPage() {
             label="Reorder Point"
             value={params.reorderPoint}
             min={1}
-            max={29}
+            max={dynamicReorderMax}
             onChange={(value) => setParams({ reorderPoint: value })}
           />
 
@@ -146,7 +146,7 @@ export default function ParametersPage() {
             label="Refill Amount"
             value={params.restockAmt}
             min={5}
-            max={30}
+            max={dynamicRestockMax}
             onChange={(value) => setParams({ restockAmt: value })}
           />
 
@@ -154,7 +154,7 @@ export default function ParametersPage() {
             label="Initial Inventory"
             value={params.initialInventory}
             min={1}
-            max={30}
+            max={dynamicInitialMax}
             onChange={(value) => setParams({ initialInventory: value })}
           />
         </div>
@@ -168,11 +168,12 @@ export default function ParametersPage() {
 
             <div className="space-y-4 text-sm">
               <RangeRow label="Max Inventory" value="10 to 30" />
-              <RangeRow label="Reorder Point" value="1 to 29" />
-              <RangeRow label="Refill Amount" value="5 to 30" />
-              <RangeRow label="Initial Inventory" value="1 to 30" />
+              <RangeRow label="Reorder Point" value={`1 to ${dynamicReorderMax}`} />
+              <RangeRow label="Refill Amount" value={`5 to ${dynamicRestockMax}`} />
+              <RangeRow label="Initial Inventory" value={`1 to ${dynamicInitialMax}`} />
               <RangeRow label="Lambda" value="0.5 to 10.0" />
             </div>
+
           </div>
 
           <div className="rounded-2xl border border-prussian-blue-300 bg-prussian-blue-400 p-6">
@@ -200,26 +201,7 @@ export default function ParametersPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-prussian-blue-300 bg-prussian-blue-400 p-6">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
-              <RefreshCcw className="text-orange-500" size={18} />
-              Restock Logic (L = 1)
-            </h2>
-            <p className="text-sm leading-relaxed text-prussian-blue-900">
-              If end-of-day inventory is less than or equal to {params.reorderPoint},
-              the system places an order of {params.restockAmt} units. That order
-              is received at the start of the next day.
-            </p>
-          </div>
 
-          <div className="rounded-2xl border border-prussian-blue-300 bg-prussian-blue-400 p-6">
-            <h2 className="mb-4 text-lg font-bold">Flow Preview</h2>
-            <div className="space-y-3 text-sm text-prussian-blue-900">
-              <FlowRow from="Demand hits inventory" to="On-hand decreases" />
-              <FlowRow from="Check reorder threshold" to="Queue restock order" />
-              <FlowRow from="Next day starts" to="Receive queued stock" />
-            </div>
-          </div>
         </aside>
       </section>
     </div>

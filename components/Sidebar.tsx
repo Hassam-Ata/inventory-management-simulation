@@ -74,25 +74,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-prussian-blue-300 space-y-4">
-        <div className="bg-prussian-blue-300/50 p-4 rounded-xl border border-prussian-blue-200">
-          <div className="flex items-center space-x-2 text-orange-500 mb-2">
-            <HelpCircle size={16} />
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              Quick Note
-            </span>
-          </div>
-          <p className="text-[11px] text-prussian-blue-800 leading-relaxed">
-            Adjust simulation parameters in the settings tab to see real-time
-            Markov updates.
-          </p>
-        </div>
-
-        <button className="w-full flex items-center space-x-3 px-4 py-2 text-prussian-blue-800 hover:text-platinum rounded-lg hover:bg-prussian-blue-300 transition-colors">
-          <Settings size={18} />
-          <span className="text-sm font-medium">Settings</span>
-        </button>
-      </div>
     </div>
   );
 }

@@ -119,18 +119,7 @@ export default function MarkovPage() {
           value={STATES.length}
           icon={Layers}
         />
-        <MetricCard
-          label="Stock-out Risk"
-          value={`${(steadyStateProbs[0] * 100).toFixed(1)}%`}
-          icon={Activity}
-          trend={{ value: "Stable", positive: true }}
-        />
-        <MetricCard label="System Stability" value="High" icon={Repeat} />
-        <MetricCard
-          label="Matrix Type"
-          value="Stochastic"
-          icon={ArrowRightLeft}
-        />
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

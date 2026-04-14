@@ -91,10 +91,7 @@ export default async function HistoryPage() {
                   <InfoChip label="Reorder Point" value={run.reorderPoint} />
                   <InfoChip label="Restock Amount" value={run.restockAmt} />
                   <InfoChip label="Max Inventory" value={run.maxInventory} />
-                  <InfoChip
-                    label="Lead Time"
-                    value={`${run.leadTimeMin}-${run.leadTimeMax} d`}
-                  />
+
                 </div>
               </div>
 
@@ -110,7 +107,6 @@ export default async function HistoryPage() {
                       <th className="px-6 py-4">Lost</th>
                       <th className="px-6 py-4">Received</th>
                       <th className="px-6 py-4">Ordered</th>
-                      <th className="px-6 py-4">Lead (d)</th>
                       <th className="px-6 py-4">Pending</th>
                       <th className="px-6 py-4">Status</th>
                     </tr>

@@ -195,7 +195,7 @@ export default function SimulationPage() {
         </div>
       </header>
 
-      <div className="flex items-center gap-2 text-xs font-semibold text-prussian-blue-800">
+      {/* <div className="flex items-center gap-2 text-xs font-semibold text-prussian-blue-800">
         <Database size={14} className="text-orange-500" />
         {saveStatus === "idle" && <span>Run a simulation to save it.</span>}
         {saveStatus === "saving" && <span>Saving run to database...</span>}
@@ -203,7 +203,7 @@ export default function SimulationPage() {
         {saveStatus === "error" && (
           <span className="text-red-400">Could not save simulation run.</span>
         )}
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
